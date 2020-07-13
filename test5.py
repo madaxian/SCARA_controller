@@ -21,6 +21,7 @@ class Demo(QMainWindow, Ui_MainWindow):
         self.length2=80####
         self.ser = 0
         self.previous = [0, 0, 0, 0]
+        self.last_xy=[0,0]
 
 
         self.doubleSpinBox_x_init()
@@ -67,6 +68,17 @@ class Demo(QMainWindow, Ui_MainWindow):
 
     def showtime(self):
         self.dateTimeEdit.setDateTime(QDateTime.currentDateTime())
+
+    #垂径距离
+    def Vertical_distance(self,a,b):
+        (x1,y1)=a
+        (x2,y2)=b
+        A=y2-y1
+        B=x1-x2
+        C=x2*y1-x1*y2
+        if A==0 and B==0:
+            return (sqrt(x1**2+y1**2),((x1-x2)*x1-(y1-y2)*y1)*((x1-x2)*x2-(y1-y2)*y2))
+        return (abs(C)/sqrt(A**2+B**2),((x1-x2)*x1-(y1-y2)*y1)*((x1-x2)*x2-(y1-y2)*y2))
     #右手系化
     def left2right(self,j1_degree,j2_degree):
         x=self.length1*math.cos(j1_degree*math.pi/180)+ self.length2*math.cos((j1_degree+j2_degree)*math.pi/180)
@@ -219,6 +231,7 @@ class Demo(QMainWindow, Ui_MainWindow):
     def replace_func(self):
         if self.ser!=0:
             result = self.ser.write("G28 \n".encode("gbk"))
+            self.last_xy=[139,0]
         else:
             print("未连接！")
 
@@ -229,31 +242,33 @@ class Demo(QMainWindow, Ui_MainWindow):
             self.list_positon.extend([self.doubleSpinBox_x.value(), self.doubleSpinBox_y.value()
                                          , self.doubleSpinBox_z.value(), self.doubleSpinBox_r.value()])
             sendangle = "G1 X%0.1f Y%0.1f Z%0.1f\n" % (self.list_positon[0], self.list_positon[1],self.list_positon[2])
-            if self.ser != 0:
-                if self.list_positon[0] ** 2 + self.list_positon[1] ** 2 <= 139 ** 2 or self.list_positon[0] ** 2 + self.list_positon[1] ** 2 >= 70 ** 2:
-                    result = self.ser.write(sendangle.encode("gbk"))
-
-                    #########保持坐标一致############：
-                    self.tabCJ_func(1)
-                    self.previous[0] = self.doubleSpinBox_j1.value()
-                    self.previous[1] = self.doubleSpinBox_j2.value()
-                    # x = self.doubleSpinBox_x.value()
-                    # y = self.doubleSpinBox_y.value()
-                    # def func(i):
-                    #     j1, j2 = i[0], i[1]
-                    #     return [-x + self.length1 * math.cos(j1) + self.length2 * math.cos(j1 + j2),
-                    #             -y + self.length1 * math.sin(j1) + self.length2 * math.sin(j1 + j2)]
-                    # result = fsolve(func, [0, 0])
-                    # (j1_r, j2_r) = result
-                    #
-                    # self.previous[0]=180 * float(j1_r) / float(pi)
-                    # self.previous[1]=180 * float(j2_r) / float(pi)
-                    ####################
+            if self.Vertical_distance(self.last_xy,self.list_positon[0:2])[0]>=70 or self.Vertical_distance(self.last_xy,self.list_positon[0:2])[1]>=0:
+                if self.ser != 0:
+                    if self.list_positon[0] ** 2 + self.list_positon[1] ** 2 <= 139 ** 2 or self.list_positon[0] ** 2 + self.list_positon[1] ** 2 >= 70 ** 2:
+                        result = self.ser.write(sendangle.encode("gbk"))
+                        #########保持坐标一致############：
+                        self.tabCJ_func(1)
+                        self.previous[0] = self.doubleSpinBox_j1.value()
+                        self.previous[1] = self.doubleSpinBox_j2.value()
+                        # x = self.doubleSpinBox_x.value()
+                        # y = self.doubleSpinBox_y.value()
+                        # def func(i):
+                        #     j1, j2 = i[0], i[1]
+                        #     return [-x + self.length1 * math.cos(j1) + self.length2 * math.cos(j1 + j2),
+                        #             -y + self.length1 * math.sin(j1) + self.length2 * math.sin(j1 + j2)]
+                        # result = fsolve(func, [0, 0])
+                        # (j1_r, j2_r) = result
+                        #
+                        # self.previous[0]=180 * float(j1_r) / float(pi)
+                        # self.previous[1]=180 * float(j2_r) / float(pi)
+                        ####################
+                    else:
+                        print("out of range!")
                 else:
-                    print("out of range!")
+                    print("未连接！")
+                self.last_xy = self.list_positon[0:2]
             else:
-                print("未连接！")
-
+                print("line across forbidden area!!")
             print('list_positon:', self.list_positon)
             print('previous:', self.previous)
 
