@@ -7,6 +7,7 @@ from coordinate7 import Ui_MainWindow
 from sympy import *
 import math
 from scipy.optimize import fsolve
+import scipy
 import time
 
 
@@ -66,6 +67,29 @@ class Demo(QMainWindow, Ui_MainWindow):
 
     def showtime(self):
         self.dateTimeEdit.setDateTime(QDateTime.currentDateTime())
+    #右手系化
+    def left2right(self,j1_degree,j2_degree):
+        x=self.length1*math.cos(j1_degree*math.pi/180)+ self.length2*math.cos((j1_degree+j2_degree)*math.pi/180)
+        y=self.length1 * math.sin(j1_degree * math.pi / 180) + self.length2 * math.sin((j1_degree + j2_degree) * math.pi / 180)
+        theta_yx=scipy.arctan2(y, x) * 180 / scipy.pi
+        return (2*theta_yx-j1_degree),-j2_degree
+
+
+    #规范角度
+    def norm_degree(self,j1_degree,j2_degree):
+        if j1_degree > 180:
+            while (j1_degree > 180):
+                j1_degree = j1_degree - 360
+        if scipy.floor(j1_degree) <= -180:
+            while (scipy.floor(j1_degree) <= -180):
+                j1_degree = scipy.floor(j1_degree) + 360
+        if j2_degree > 180:
+            while (j2_degree > 180):
+                j2_degree = j2_degree - 360
+        if scipy.floor(j2_degree) <= -180:
+            while (scipy.floor(j2_degree) <= -180):
+                j2_degree = scipy.floor(j2_degree) + 360
+        return j1_degree,j2_degree
     #加个读行
     def readline_fun(self):
         if self.ser != 0:
@@ -132,6 +156,7 @@ class Demo(QMainWindow, Ui_MainWindow):
             beta=self.doubleSpinBox_j2.value()
             self.doubleSpinBox_x.setValue( self.length1*math.cos(alpha*math.pi/180)+ self.length2*math.cos((alpha+beta)*math.pi/180))
             self.doubleSpinBox_y.setValue(self.length1 * math.sin(alpha*math.pi/180) + self.length2 * math.sin((alpha+beta)*math.pi/180))
+            self.doubleSpinBox_z.setValue(self.doubleSpinBox_j3.value())
             #####################
         else:
             #####################下面为关节界面数值设定：
@@ -147,6 +172,12 @@ class Demo(QMainWindow, Ui_MainWindow):
                 return [-x+self.length1*math.cos(j1)+self.length2*math.cos(j1+j2), -y+self.length1*math.sin(j1)+self.length2*math.sin(j1+j2)]
             result = fsolve(func, [0, 0])
             (j1_r,j2_r)=result
+            #######################################
+            j1_degree=180 * float(j1_r) / float(pi)
+            j2_degree=180 * float(j2_r) / float(pi)
+            j1_degree,j2_degree=self.norm_degree(j1_degree,j2_degree)
+            j1_degree,j2_degree=self.left2right(j1_degree,j2_degree)
+
 
             # for (i1,i2) in result:
             #     # if i1<0:
@@ -156,8 +187,9 @@ class Demo(QMainWindow, Ui_MainWindow):
             #     if i1>=0 and i2>=0:
             #         j1_r=i1
             #         j2_r=i2
-            self.doubleSpinBox_j1.setValue( 180*float(j1_r)/float(pi))
-            self.doubleSpinBox_j2.setValue(180 * float(j2_r) / float(pi))
+            self.doubleSpinBox_j1.setValue(j1_degree)
+            self.doubleSpinBox_j2.setValue(j2_degree)
+            self.doubleSpinBox_j3.setValue(self.doubleSpinBox_z.value())
             #####################
 
 
@@ -226,20 +258,24 @@ class Demo(QMainWindow, Ui_MainWindow):
             print('previous:', self.previous)
 
         else:
+
             self.list_positon.clear()
             self.list_positon.extend([self.doubleSpinBox_j1.value(), self.doubleSpinBox_j2.value()
                                          , self.doubleSpinBox_j3.value(), self.doubleSpinBox_j4.value()])
-            deltax = self.list_positon[0] - self.previous[0]
-            deltay = self.list_positon[1] - self.previous[1]
-            deltaz= self.list_positon[2] - self.previous[2]
-            sendangle = "G888 X%0.1f Y%0.1f Z%0.1f\n" % (deltax, deltay,deltaz)
-            print(sendangle)
-            if self.ser != 0:
-                result = self.ser.write(sendangle.encode("gbk"))
+            if 167>=self.list_positon[0]>=-167 and 137>=self.list_positon[1]>=0 and 46.6>=self.list_positon[2]>=-10:
+                deltax = self.list_positon[0] - self.previous[0]
+                deltay = self.list_positon[1] - self.previous[1]
+                deltaz= self.list_positon[2] - self.previous[2]
+                sendangle = "G888 X%0.1f Y%0.1f Z%0.1f\n" % (deltax, deltay,deltaz)
+                print(sendangle)
+                if self.ser != 0:
+                    result = self.ser.write(sendangle.encode("gbk"))
+                else:
+                    print("未连接！")
+                print(self.list_positon)
+                self.previous = self.list_positon.copy()
             else:
-                print("未连接！")
-            print(self.list_positon)
-            self.previous = self.list_positon.copy()
+                print("out of range!")
 
 
     def changeValue_func(self,slider_Speed):
